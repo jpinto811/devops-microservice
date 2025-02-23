@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "mtobias13/my-microservice:latest"
         HOME = "/var/jenkins_home"
-        PATH = "${HOME}/.local/bin:${PATH}"  // Asegurar PATH correcto
+        PATH = "${HOME}/.local/bin:${PATH}"
     }
 
     stages {
@@ -29,9 +29,8 @@ pipeline {
                     python3 -m venv venv
                     . venv/bin/activate
                     pip install --no-cache-dir -r requirements.txt --break-system-packages
-                    pip install requests  # 🔹 Se instala requests manualmente para evitar errores
                     export PATH="$HOME/.local/bin:$PATH"
-                    pytest tests/ || true  # 🔹 Permite continuar aunque pytest falle
+                    pytest tests/ --break-system-packages || true
                 '''
             }
         }
