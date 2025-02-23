@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-microservice
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: devops-microservice
+  template:
+    metadata:
+      labels:
+        app: devops-microservice
+    spec:
+      containers:
+      - name: devops-microservice
+        image: mtobias13/devops-microservice:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: devops-secret
+              key: SECRET_KEY
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: devops-secret
+              key: API_KEY
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
