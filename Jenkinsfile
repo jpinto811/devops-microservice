@@ -2,23 +2,21 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "mtobias13/my-microservice:latest"
-        HOME = "/var/jenkins_home"
-        PATH = "${HOME}/.local/bin:${PATH}"
+        DOCKER_IMAGE = 'mtobias13/my-microservice:latest'
     }
 
     stages {
         stage('Checkout') {
             steps {
                 echo 'Cloning repository...'
-                git branch: 'main', url: 'https://github.com/jpinto811/devops-microservice.git'
+                git 'https://github.com/jpinto811/devops-microservice.git'
             }
         }
 
         stage('Build') {
             steps {
                 echo 'Building Docker image...'
-                sh 'docker build -t ${DOCKER_IMAGE} .'
+                sh 'docker build -t $DOCKER_IMAGE .'
             }
         }
 
@@ -28,9 +26,8 @@ pipeline {
                 sh '''
                     python3 -m venv venv
                     . venv/bin/activate
-                    pip install --no-cache-dir -r requirements.txt --break-system-packages
-                    export PATH="$HOME/.local/bin:$PATH"
-                    pytest tests/ --break-system-packages || true
+                    pip install --no-cache-dir -r requirements.txt
+                    pytest tests/
                 '''
             }
         }
@@ -38,32 +35,27 @@ pipeline {
         stage('Push Image') {
             steps {
                 echo 'Logging into Docker Hub...'
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                withCredentials([string(credentialsId: 'docker-hub-credentials', variable: 'DOCKER_PASSWORD')]) {
+                    sh '''
+                        echo $DOCKER_PASSWORD | docker login -u mtobias13 --password-stdin
+                        docker push $DOCKER_IMAGE
+                    '''
                 }
-
-                echo 'Tagging and pushing Docker image...'
-                sh '''
-                    docker tag ${DOCKER_IMAGE} ${DOCKER_IMAGE}
-                    docker push ${DOCKER_IMAGE}
-                '''
             }
         }
 
         stage('Deploy') {
             steps {
                 echo 'Deploying to Kubernetes...'
-                sh '''
-                    kubectl apply -f k8s/
-                    kubectl rollout status deployment/my-microservice
-                '''
+                sh 'kubectl apply -f k8s/deployment.yaml'
+                sh 'kubectl rollout status deployment my-microservice'
             }
         }
     }
 
     post {
         success {
-            echo '✅ Pipeline executed successfully! 🚀'
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
             echo '❌ Pipeline failed. Check logs for errors.'
