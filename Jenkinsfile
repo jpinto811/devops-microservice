@@ -16,7 +16,7 @@ pipeline {
         stage('Test') {
             steps {
                 echo 'Running tests inside Docker container...'
-                sh 'docker run --rm $DOCKER_IMAGE pytest tests/'
+                sh 'docker run --rm -e PYTHONPATH=/app $DOCKER_IMAGE pytest tests/'
             }
         }
     }
