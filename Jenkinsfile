@@ -2,24 +2,21 @@ pipeline {
     agent any
 
     environment {
-        REPO_URL = 'https://github.com/jpinto811/devops-microservice.git'
-        BRANCH = 'main'
-        IMAGE_NAME = 'my-microservice'
-        K8S_DIR = 'k8s/'
+        DOCKER_IMAGE = "mtobias13/my-microservice:latest"
     }
 
     stages {
         stage('Checkout') {
             steps {
                 echo 'Cloning repository...'
-                git branch: "${BRANCH}", url: "${REPO_URL}"
+                git branch: 'main', url: 'https://github.com/jpinto811/devops-microservice.git'
             }
         }
 
         stage('Build') {
             steps {
-                echo 'Building Docker image...'
-                sh 'docker build -t ${IMAGE_NAME} .'
+                echo 'Building the application...'
+                sh 'docker build -t ${DOCKER_IMAGE} .'
             }
         }
 
@@ -27,40 +24,44 @@ pipeline {
             steps {
                 echo 'Running tests...'
                 sh '''
-                pip install -r requirements.txt
-                pytest tests/
+                    python3 -m venv venv
+                    source venv/bin/activate
+                    pip install --no-cache-dir -r requirements.txt --break-system-packages
+                    pytest tests/
                 '''
             }
         }
 
         stage('Push Image') {
             steps {
-                echo 'Pushing Docker image to registry...'
-                sh '''
-                docker tag ${IMAGE_NAME} mydockerhub/${IMAGE_NAME}:latest
-                docker push mydockerhub/${IMAGE_NAME}:latest
-                '''
+                echo 'Logging into Docker Hub...'
+                withCredentials([string(credentialsId: 'DOCKER_PASSWORD', variable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo $DOCKER_PASSWORD | docker login -u mtobias13 --password-stdin'
+                }
+
+                echo 'Tagging Docker image...'
+                sh 'docker tag ${DOCKER_IMAGE} ${DOCKER_IMAGE}'
+
+                echo 'Pushing Docker image...'
+                sh 'docker push ${DOCKER_IMAGE}'
             }
         }
 
         stage('Deploy') {
             steps {
                 echo 'Deploying to Kubernetes...'
-                sh '''
-                kubectl apply -f ${K8S_DIR}
-                kubectl rollout status deployment/my-microservice
-                '''
+                sh 'kubectl apply -f k8s/'
+                sh 'kubectl rollout status deployment/my-microservice'
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo 'Pipeline executed successfully!'
         }
         failure {
             echo 'Pipeline failed. Check logs for errors.'
         }
     }
 }
-
