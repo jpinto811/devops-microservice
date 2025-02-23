@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "mtobias13/my-microservice:latest"
         HOME = "/var/jenkins_home"
-        PATH = "${HOME}/.local/bin:${PATH}"  // Agrega los binarios locales al PATH
+        PATH = "${HOME}/.local/bin:${PATH}"  // Asegurar PATH correcto
     }
 
     stages {
@@ -29,8 +29,9 @@ pipeline {
                     python3 -m venv venv
                     . venv/bin/activate
                     pip install --no-cache-dir -r requirements.txt --break-system-packages
+                    pip install requests  # 🔹 Se instala requests manualmente para evitar errores
                     export PATH="$HOME/.local/bin:$PATH"
-                    pytest tests/ || true  # Permite continuar aunque pytest falle
+                    pytest tests/ || true  # 🔹 Permite continuar aunque pytest falle
                 '''
             }
         }
@@ -38,8 +39,8 @@ pipeline {
         stage('Push Image') {
             steps {
                 echo 'Logging into Docker Hub...'
-                withCredentials([string(credentialsId: 'DOCKER_PASSWORD', variable: 'DOCKER_PASSWORD')]) {
-                    sh 'echo $DOCKER_PASSWORD | docker login -u mtobias13 --password-stdin'
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
                 }
 
                 echo 'Tagging and pushing Docker image...'
