@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "mtobias13/my-microservice:latest"
+        HOME = "/var/jenkins_home"
+        PATH = "${HOME}/.local/bin:${PATH}"  // Agrega los binarios locales al PATH
     }
 
     stages {
@@ -15,7 +17,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo 'Building the application...'
+                echo 'Building Docker image...'
                 sh 'docker build -t ${DOCKER_IMAGE} .'
             }
         }
@@ -25,8 +27,9 @@ pipeline {
                 echo 'Running tests...'
                 sh '''
                     python3 -m venv venv
-                    . venv/bin/activate  # Corrección aquí para sh
+                    . venv/bin/activate
                     pip install --no-cache-dir -r requirements.txt --break-system-packages
+                    export PATH="$HOME/.local/bin:$PATH"
                     pytest tests/
                 '''
             }
@@ -58,10 +61,10 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline executed successfully!'
+            echo 'Pipeline executed successfully! 🚀'
         }
         failure {
-            echo 'Pipeline failed. Check logs for errors.'
+            echo 'Pipeline failed. Check logs for errors. ❌'
         }
     }
 }
