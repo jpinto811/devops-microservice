@@ -25,7 +25,7 @@ pipeline {
                 echo 'Running tests...'
                 sh '''
                     python3 -m venv venv
-                    source venv/bin/activate
+                    . venv/bin/activate  # Corrección aquí para sh
                     pip install --no-cache-dir -r requirements.txt --break-system-packages
                     pytest tests/
                 '''
