@@ -3,13 +3,14 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'mtobias13/my-microservice:latest'
+        GIT_REPO = 'https://github.com/jpinto811/devops-microservice.git'
     }
 
     stages {
         stage('Checkout') {
             steps {
                 echo 'Cloning repository...'
-                git 'https://github.com/jpinto811/devops-microservice.git'
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], userRemoteConfigs: [[url: GIT_REPO]]])
             }
         }
 
@@ -26,8 +27,8 @@ pipeline {
                 sh '''
                     python3 -m venv venv
                     . venv/bin/activate
-                    pip install --no-cache-dir -r requirements.txt
-                    pytest tests/
+                    pip install --no-cache-dir --break-system-packages -r requirements.txt
+                    pytest tests/ --maxfail=1 --disable-warnings
                 '''
             }
         }
@@ -35,7 +36,7 @@ pipeline {
         stage('Push Image') {
             steps {
                 echo 'Logging into Docker Hub...'
-                withCredentials([string(credentialsId: 'docker-hub-credentials', variable: 'DOCKER_PASSWORD')]) {
+                withCredentials([string(credentialsId: 'DOCKER_PASSWORD', variable: 'DOCKER_PASSWORD')]) {
                     sh '''
                         echo $DOCKER_PASSWORD | docker login -u mtobias13 --password-stdin
                         docker push $DOCKER_IMAGE
@@ -47,8 +48,14 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo 'Deploying to Kubernetes...'
-                sh 'kubectl apply -f k8s/deployment.yaml'
-                sh 'kubectl rollout status deployment my-microservice'
+                sh '''
+                    if [ -d "k8s" ]; then
+                        kubectl apply -f k8s/deployment.yaml
+                        kubectl rollout status deployment my-microservice
+                    else
+                        echo "⚠️ Directory k8s/ not found. Skipping deployment."
+                    fi
+                '''
             }
         }
     }
