@@ -15,8 +15,8 @@ pipeline {
 
         stage('Test') {
             steps {
-                echo 'Running tests...'
-                sh 'pytest tests/'
+                echo 'Running tests inside Docker container...'
+                sh 'docker run --rm $DOCKER_IMAGE pytest tests/'
             }
         }
     }
