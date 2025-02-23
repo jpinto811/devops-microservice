@@ -3,21 +3,27 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'mtobias13/my-microservice:latest'
-        GIT_REPO = 'https://github.com/jpinto811/devops-microservice.git'
+        DOCKER_CREDENTIALS = 'docker-hub-credentials'
+        GITHUB_CREDENTIALS = 'github-credentials'
+        REPO_URL = 'https://github.com/jpinto811/devops-microservice.git'
+        WORKDIR = 'devops-microservice'
     }
 
     stages {
         stage('Checkout') {
             steps {
                 echo 'Cloning repository...'
-                checkout([$class: 'GitSCM', branches: [[name: '*/main']], userRemoteConfigs: [[url: GIT_REPO]]])
+                deleteDir() // Limpiar el workspace antes de clonar
+                git credentialsId: "${GITHUB_CREDENTIALS}", url: "${REPO_URL}", branch: 'main'
             }
         }
 
         stage('Build') {
             steps {
                 echo 'Building Docker image...'
-                sh 'docker build -t $DOCKER_IMAGE .'
+                sh '''
+                    docker build -t $DOCKER_IMAGE .
+                '''
             }
         }
 
@@ -27,8 +33,8 @@ pipeline {
                 sh '''
                     python3 -m venv venv
                     . venv/bin/activate
-                    pip install --no-cache-dir --break-system-packages -r requirements.txt
-                    pytest tests/ --maxfail=1 --disable-warnings
+                    pip install --no-cache-dir -r requirements.txt
+                    pytest tests/
                 '''
             }
         }
@@ -36,7 +42,7 @@ pipeline {
         stage('Push Image') {
             steps {
                 echo 'Logging into Docker Hub...'
-                withCredentials([string(credentialsId: 'DOCKER_PASSWORD', variable: 'DOCKER_PASSWORD')]) {
+                withCredentials([string(credentialsId: "${DOCKER_CREDENTIALS}", variable: 'DOCKER_PASSWORD')]) {
                     sh '''
                         echo $DOCKER_PASSWORD | docker login -u mtobias13 --password-stdin
                         docker push $DOCKER_IMAGE
@@ -49,12 +55,8 @@ pipeline {
             steps {
                 echo 'Deploying to Kubernetes...'
                 sh '''
-                    if [ -d "k8s" ]; then
-                        kubectl apply -f k8s/deployment.yaml
-                        kubectl rollout status deployment my-microservice
-                    else
-                        echo "⚠️ Directory k8s/ not found. Skipping deployment."
-                    fi
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl rollout status deployment my-microservice
                 '''
             }
         }
