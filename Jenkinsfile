@@ -3,8 +3,6 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'mtobias13/my-microservice:latest'
-        CONTAINER_NAME = 'test-microservice'
-        TEST_PORT = '8000'
     }
 
     stages {
@@ -19,56 +17,41 @@ pipeline {
 
         stage('Test') {
             steps {
+                echo '🛑 Checking if port 8000 is already in use...'
+                sh '''
+                    if [ "$(docker ps -q -f publish=8000)" ]; then
+                        echo "⚠️ Port 8000 is already in use. Stopping any running container..."
+                        docker stop $(docker ps -q -f publish=8000) || true
+                    fi
+                '''
+
                 echo '🧪 Starting microservice container for testing...'
                 sh '''
-                    docker run -d --name $CONTAINER_NAME -p $TEST_PORT:$TEST_PORT $DOCKER_IMAGE
-                    sleep 5  # Give some time for the service to start
-                    docker ps | grep $CONTAINER_NAME
+                    docker run -d --name test-microservice -p 8000:8000 $DOCKER_IMAGE
+                    sleep 5  # Esperar a que el servicio se levante
                 '''
 
-                echo '🔍 Checking if service is up...'
-                script {
-                    def retries = 5
-                    def service_up = false
-                    for (int i = 0; i < retries; i++) {
-                        def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:$TEST_PORT/docs", returnStdout: true).trim()
-                        if (response == '200') {
-                            service_up = true
-                            break
-                        }
-                        echo "⏳ Service not up yet. Retrying in 3s... ($i/$retries)"
-                        sleep(3)
-                    }
-                    if (!service_up) {
-                        error('❌ Service did not start in time! Aborting tests.')
-                    }
-                }
-
-                echo '🧪 Running tests inside Docker container...'
+                echo '🔎 Running tests inside Docker container...'
                 sh '''
-                    docker exec $CONTAINER_NAME pytest tests/ --maxfail=1 --disable-warnings -v
-                '''
-
-                echo '🛑 Stopping and cleaning up test container...'
-                sh '''
-                    docker stop $CONTAINER_NAME
-                    docker rm $CONTAINER_NAME
+                    docker run --rm --network=host -e PYTHONPATH=/app $DOCKER_IMAGE pytest tests/ --maxfail=1 --disable-warnings -v
                 '''
             }
         }
     }
 
     post {
+        always {
+            echo '🧹 Cleaning up test container...'
+            sh '''
+                docker stop test-microservice || true
+                docker rm test-microservice || true
+            '''
+        }
         success {
             echo '✅ Build and Test Passed! 🎉'
         }
         failure {
             echo '❌ Build or Test Failed. Check logs. 🔥'
-            sh '''
-                docker logs $CONTAINER_NAME || true
-                docker stop $CONTAINER_NAME || true
-                docker rm $CONTAINER_NAME || true
-            '''
         }
     }
 }
