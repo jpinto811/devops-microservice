@@ -22,17 +22,19 @@ pipeline {
                 echo '🛑 Checking if port 8000 is already in use...'
                 sh '''
                     if [ "$(docker ps -q -f publish=8000)" ]; then
-                        echo "⚠️ Port 8000 is already in use. Stopping any running container..."
-                        docker stop $(docker ps -q -f publish=8000) || true
+                        echo "⚠️ Port 8000 is already in use. Stopping and removing any running container..."
+                        docker stop test-microservice || true
+                        docker rm -f test-microservice || true
                     fi
                 '''
 
                 echo '🧪 Starting microservice container for testing...'
                 sh '''
+                    docker rm -f test-microservice || true
                     docker run -d --name test-microservice -p 8000:8000 \
                         -e API_KEY=$API_KEY -e SECRET_KEY=$SECRET_KEY $DOCKER_IMAGE
-                    sleep 5  # Esperar a que el servicio se levante
-                    docker logs test-microservice  # Verifica si el servicio arrancó
+                    sleep 5
+                    docker logs test-microservice
                 '''
 
                 echo '🔎 Running tests inside Docker container...'
@@ -51,7 +53,7 @@ pipeline {
             echo '🧹 Cleaning up test container...'
             sh '''
                 docker stop test-microservice || true
-                docker rm test-microservice || true
+                docker rm -f test-microservice || true
             '''
         }
         success {
