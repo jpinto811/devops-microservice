@@ -29,6 +29,7 @@ pipeline {
                 sh '''
                     docker run -d --name test-microservice -p 8000:8000 $DOCKER_IMAGE
                     sleep 5  # Esperar a que el servicio se levante
+                    docker logs test-microservice  # Verifica si el servicio arrancó
                 '''
 
                 echo '🔎 Running tests inside Docker container...'

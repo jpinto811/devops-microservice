@@ -7,7 +7,7 @@ from unittest.mock import patch
 import main
 
 # Definir la URL base
-BASE_URL = "http://192.168.49.2:32497"
+BASE_URL = "http://localhost:8000"
 
 # Variables de entorno simuladas
 API_KEY = "2f5ae96c-b558-4c7b-a590-a501ae1c3f6c"
